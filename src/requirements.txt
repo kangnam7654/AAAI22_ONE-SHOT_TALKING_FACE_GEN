@@ -1,0 +1,12 @@
+scikit-image
+python_speech_features
+pandas
+pyworld
+pyyaml
+imageio
+scipy
+pyworld
+opencv-python
+ffmpeg
+cmake
+dlib
