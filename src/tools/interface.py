@@ -1,33 +1,45 @@
 import os
+import sys
+from pathlib import Path
 
-from skimage import io,img_as_float32
+ROOT_DIR = Path(__file__).parents[1]
+sys.path.append(str(ROOT_DIR))
+CONFIG_DIR = os.path.join(ROOT_DIR, 'config_file')
+SAMPLE_DIR = os.path.join(ROOT_DIR, 'samples')
+
+from skimage import io, img_as_float32
 import cv2
 import torch
 import numpy as np
 import subprocess
-import pandas
+import pandas as pd
 from models.audio2pose import audio2poseLSTM
 from scipy.io import wavfile
 import python_speech_features
 import pyworld
-import config
 import json
 from scipy.interpolate import interp1d
+import yaml
 
-def inter_pitch(y,y_flag):
+# import config
+with open(os.path.join(CONFIG_DIR, 'vox-256.yaml')) as f:
+    config = yaml.full_load(f)
+
+
+def inter_pitch(y, y_flag):
     frame_num = y.shape[0]
     i = 0
     last = -1
-    while(i<frame_num):
+    while i < frame_num:
         if y_flag[i] == 0:
             while True:
-                if y_flag[i]==0:
-                    if i == frame_num-1:
-                        if last !=-1:
-                            y[last+1:] = y[last]
-                        i+=1
+                if y_flag[i] == 0:
+                    if i == frame_num - 1:
+                        if last != -1:
+                            y[last + 1 :] = y[last]
+                        i += 1
                         break
-                    i+=1
+                    i += 1
                 else:
                     break
             if i >= frame_num:
@@ -35,50 +47,59 @@ def inter_pitch(y,y_flag):
             elif last == -1:
                 y[:i] = y[i]
             else:
-                inter_num = i-last+1
-                fy = np.array([y[last],y[i]])
+                inter_num = i - last + 1
+                fy = np.array([y[last], y[i]])
                 fx = np.linspace(0, 1, num=2)
-                f = interp1d(fx,fy)
-                fx_new = np.linspace(0,1,inter_num)
+                f = interp1d(fx, fy)
+                fx_new = np.linspace(0, 1, inter_num)
                 fy_new = f(fx_new)
-                y[last+1:i] = fy_new[1:-1]
+                y[last + 1 : i] = fy_new[1:-1]
                 last = i
-                i+=1
+                i += 1
 
         else:
             last = i
-            i+=1
+            i += 1
     return y
 
 
-def load_ckpt(checkpoint_path, generator = None, kp_detector = None, ph2kp = None):
+def load_ckpt(checkpoint_path, generator=None, kp_detector=None, ph2kp=None):
     checkpoint = torch.load(checkpoint_path)
     if ph2kp is not None:
-        ph2kp.load_state_dict(checkpoint['ph2kp'])
+        ph2kp.load_state_dict(checkpoint["ph2kp"])
     if generator is not None:
-        generator.load_state_dict(checkpoint['generator'])
+        generator.load_state_dict(checkpoint["generator"])
     if kp_detector is not None:
-        kp_detector.load_state_dict(checkpoint['kp_detector'])
+        kp_detector.load_state_dict(checkpoint["kp_detector"])
+
 
 def get_img_pose(img_path):
-    processor = config.OPENFACE_POSE_EXTRACTOR_PATH
+    processor = config['OPENFACE_POSE_EXTRACTOR_PATH']
 
-    tmp_dir = "samples/tmp_dir"
-    os.makedirs((tmp_dir),exist_ok=True)
+    tmp_dir = os.path.join(SAMPLE_DIR, "tmp_dir")
+    os.makedirs((tmp_dir), exist_ok=True)
     subprocess.call([processor, "-f", img_path, "-out_dir", tmp_dir, "-pose"])
 
-    img_file = os.path.basename(img_path)[:-4]+".csv"
-    csv_file = os.path.join(tmp_dir,img_file)
-    pos_data = pandas.read_csv(csv_file)
+    img_file = os.path.basename(img_path)[:-4] + ".csv"
+    csv_file = os.path.join(tmp_dir, img_file)
+    pos_data = pd.read_csv(csv_file)
     i = 0
     # pose = [pos_data[" pose_Rx"][i], pos_data[" pose_Ry"][i], pos_data[" pose_Rz"][i],pos_data[" pose_Tx"][i], pos_data[" pose_Ty"][i], pos_data[" pose_Tz"][i]]
-    pose = [pos_data["pose_Rx"][i], pos_data["pose_Ry"][i], pos_data["pose_Rz"][i],pos_data["pose_Tx"][i], pos_data["pose_Ty"][i], pos_data["pose_Tz"][i]]
+    pose = [
+        pos_data["pose_Rx"][i],
+        pos_data["pose_Ry"][i],
+        pos_data["pose_Rz"][i],
+        pos_data["pose_Tx"][i],
+        pos_data["pose_Ty"][i],
+        pos_data["pose_Tz"][i],
+    ]
     # pose = [pose]
-    pose = np.array(pose,dtype=np.float32)
+    pose = np.array(pose, dtype=np.float32)
     return pose
 
+
 def read_img(path):
-    img = io.imread(path)[:,:,:3]
+    img = io.imread(path)[:, :, :3]
     img = cv2.resize(img, (256, 256))
     # img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     img = np.array(img_as_float32(img))
@@ -87,10 +108,10 @@ def read_img(path):
     return img
 
 
-def parse_phoneme_file(phoneme_path,use_index = True):
-    with open(phoneme_path,'r') as f:
+def parse_phoneme_file(phoneme_path, use_index=True):
+    with open(phoneme_path, "r") as f:
         result_text = json.load(f)
-    frame_num = int(result_text[-1]['phones'][-1]['ed']/100*25)
+    frame_num = int(result_text[-1]["phones"][-1]["ed"] / 100 * 25)
     phoneset_list = []
     index = 0
 
@@ -129,13 +150,14 @@ def parse_phoneme_file(phoneme_path,use_index = True):
                 phoneset_list.append(cur_phone_list[phone_index]["ph"])
                 index += 1
 
-    with open("phindex.json") as f:
+    with open("G:\project\\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\src\phindex.json") as f:
         ph2index = json.load(f)
     if use_index:
         phone_list = [ph2index[p] for p in phone_list]
     saves = {"phone_list": phone_list}
 
     return saves
+
 
 def get_audio_feature_from_audio(audio_path):
     sample_rate, audio = wavfile.read(audio_path)
@@ -156,10 +178,13 @@ def get_audio_feature_from_audio(audio_path):
     c_flag = np.expand_dims(c_flag, axis=1)
     frame_num = np.min([a.shape[0], b.shape[0], c.shape[0]])
 
-    cat = np.concatenate([a[:frame_num], b[:frame_num], c[:frame_num], c_flag[:frame_num]], axis=1)
+    cat = np.concatenate(
+        [a[:frame_num], b[:frame_num], c[:frame_num], c_flag[:frame_num]], axis=1
+    )
     return cat
 
-def get_pose_from_audio(img,audio,audio2pose):
+
+def get_pose_from_audio(img, audio, audio2pose):
 
     num_frame = len(audio) // 4
 
@@ -172,20 +197,18 @@ def get_pose_from_audio(img,audio,audio2pose):
     generator.load_state_dict(ckpt_para["generator"])
     generator.eval()
 
-
     audio_seq = []
     for i in range(num_frame):
-        audio_seq.append(audio[i*4:i*4+4])
+        audio_seq.append(audio[i * 4 : i * 4 + 4])
 
-    audio = torch.from_numpy(np.array(audio_seq,dtype=np.float32)).unsqueeze(0).cuda()
+    audio = torch.from_numpy(np.array(audio_seq, dtype=np.float32)).unsqueeze(0).cuda()
 
     x = {}
-    x ["img"] = img
+    x["img"] = img
     x["audio"] = audio
     poses = generator(x)
 
     poses = poses.cpu().data.numpy()[0]
-    poses = (poses+1)/2*(maxv-minv)+minv
+    poses = (poses + 1) / 2 * (maxv - minv) + minv
 
     return poses
-

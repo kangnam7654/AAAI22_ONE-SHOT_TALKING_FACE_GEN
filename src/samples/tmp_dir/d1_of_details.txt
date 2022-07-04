@@ -1,0 +1,10 @@
+Input:G:\project\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\src\samples\imgs\d1.jpg
+Input full path:G:\project\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\src\samples\imgs\d1.jpg
+Camera parameters:233.333,233.333,128,128
+Output csv:d1.csv
+Gaze: 0
+AUs: 0
+Landmarks 2D: 0
+Landmarks 3D: 0
+Pose: 1
+Shape parameters: 0
