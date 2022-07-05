@@ -5,7 +5,7 @@
 ```
 
 ---
-## Actual Requirements
+## Requirements
 
 ### 1. Install `Microsoft Visual C++`
 → [Download Link(Korean)](https://visualstudio.microsoft.com/ko/downloads/)  
@@ -32,3 +32,6 @@ For windows, you have to add `FFmpeg` **bin folder path** to user/system environ
 ---
 ## Note
 There are some omissions in `requirements.txt`, therefore I added what I installed you actual run
+
+## Phoneme extract tool
+→ [Download Link](https://cmusphinx.github.io/wiki/phonemerecognition/)
