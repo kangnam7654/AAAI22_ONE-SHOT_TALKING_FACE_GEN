@@ -86,12 +86,12 @@ def get_img_pose(img_path):
     i = 0
     # pose = [pos_data[" pose_Rx"][i], pos_data[" pose_Ry"][i], pos_data[" pose_Rz"][i],pos_data[" pose_Tx"][i], pos_data[" pose_Ty"][i], pos_data[" pose_Tz"][i]]
     pose = [
-        pos_data["pose_Rx"][i],
-        pos_data["pose_Ry"][i],
-        pos_data["pose_Rz"][i],
-        pos_data["pose_Tx"][i],
-        pos_data["pose_Ty"][i],
-        pos_data["pose_Tz"][i],
+        pos_data.loc[i, " pose_Rx"],
+        pos_data.loc[i, " pose_Ry"],
+        pos_data.loc[i, " pose_Rz"],
+        pos_data.loc[i, " pose_Tx"],
+        pos_data.loc[i, " pose_Ty"],
+        pos_data.loc[i, " pose_Tz"],
     ]
     # pose = [pose]
     pose = np.array(pose, dtype=np.float32)

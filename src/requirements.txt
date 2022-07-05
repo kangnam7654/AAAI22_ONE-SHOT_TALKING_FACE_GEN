@@ -7,6 +7,7 @@ imageio
 scipy
 pyworld
 opencv-python
+imageio-ffmpeg
 ffmpeg
 cmake
 dlib
