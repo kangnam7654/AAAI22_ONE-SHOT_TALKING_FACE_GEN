@@ -1,5 +1,4 @@
 import os
-import sys
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent
@@ -66,7 +65,8 @@ def test_with_input_audio_and_image(
     cur_path = os.getcwd()
 
     sr, _ = wavfile.read(audio_path)  # sample rate, data
-    if sr != 16000:
+    
+    if sr != 16000: # change sample rate 16k
         temp_audio = os.path.join(cur_path, "samples", "temp.wav")
         command = (
             "ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s"
@@ -76,12 +76,10 @@ def test_with_input_audio_and_image(
     else:
         temp_audio = audio_path
 
-    with open(os.path.join(CONFIG_DIR, "audio2kp.yaml")) as f:
+    with open(os.path.join(CONFIG_DIR, "audio2kp.yaml")) as f:  # audio2kp open
         tmp = yaml.full_load(f)
         
-    # opt = argparse.Namespace(**yaml.load(open("config_file/audio2kp.yaml")))
     opt = argparse.Namespace(**tmp)
-
     img = read_img(img_path).cuda()
 
     first_pose = get_img_pose(img_path)  # .cuda()
