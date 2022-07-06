@@ -276,7 +276,7 @@ def draw_annotation_box( image, rotation_vector, translation_vector, color=(255,
          [0, 233.333, 128],
          [0, 0, 1]], dtype="double")
 
-    dist_coeefs = np.zeros((4, 1))
+    dist_coeefs = np.zeros((4, 1)) # distortion coefficients # 왜곡보정
 
     point_3d = []
     rear_size = 75

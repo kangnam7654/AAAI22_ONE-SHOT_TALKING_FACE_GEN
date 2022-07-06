@@ -82,42 +82,44 @@ def test_with_input_audio_and_image(
     opt = argparse.Namespace(**tmp)
     img = read_img(img_path).cuda()
 
-    first_pose = get_img_pose(img_path)  # .cuda()
 
-    audio_feature = get_audio_feature_from_audio(temp_audio)
+    first_pose = get_img_pose(img_path)  # h_r # [Rx, Ry, Rz, Tx, Ty, Tz]
+    audio_feature = get_audio_feature_from_audio(temp_audio) # a_{1:T} # shape [time, power]
+    
     frames = len(audio_feature) // 4
     frames = min(frames, len(phs["phone_list"]))
 
     tp = np.zeros([256, 256], dtype=np.float32)
     draw_annotation_box(tp, first_pose[:3], first_pose[3:])
-    tp = torch.from_numpy(tp).unsqueeze(0).unsqueeze(0).cuda()
-    ref_pose = get_pose_from_audio(tp, audio_feature, audio2pose_ckpt)
+    tp = torch.from_numpy(tp).unsqueeze(0).unsqueeze(0).cuda() # [1, 1, 256, 256]
+    ref_pose = get_pose_from_audio(tp, audio_feature, audio2pose_ckpt) # h_{1:T}
     torch.cuda.empty_cache()
-    trans_seq = ref_pose[:, 3:]
-    rot_seq = ref_pose[:, :3]
+    trans_seq = ref_pose[:, 3:] # 프레임 별 transpose vector 변화 (카메라 정렬 사용 벡터)
+    rot_seq = ref_pose[:, :3] # 프레임 별 rotaion vector 변화 (카메라 정렬 사용 벡터)
 
-    audio_seq = audio_feature  # [40:]
+    audio_seq = audio_feature  # [40:] # ???
     ph_seq = phs["phone_list"]
 
-    ph_frames = []
-    audio_frames = []
-    pose_frames = []
+    ph_frames = [] # p_{1:T} # phoneme(음소)
+    audio_frames = [] # a_{1:T}
+    pose_frames = [] # h_{1:T}
     name_len = frames
 
     pad = np.zeros((4, audio_seq.shape[1]), dtype=np.float32)
 
+    # To get p, a, h
     for rid in range(0, frames):
         ph = []
-        audio = []
+        audio = [] 
         pose = []
         for i in range(rid - opt.num_w, rid + opt.num_w + 1):
             if i < 0:
                 rot = rot_seq[0]
                 trans = trans_seq[0]
-                ph.append(31)
+                ph.append(31) # phoneme # 31 = SIL = silence
                 audio.append(pad)
             elif i >= name_len:
-                ph.append(31)
+                ph.append(31) # phoneme # 31 = SIL = silence
                 rot = rot_seq[name_len - 1]
                 trans = trans_seq[name_len - 1]
                 audio.append(pad)
