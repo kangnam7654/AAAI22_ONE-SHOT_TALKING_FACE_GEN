@@ -31,7 +31,7 @@ For windows, you have to add `FFmpeg` **bin folder path** to user/system environ
 
 ---
 ## Note
-There are some omissions in `requirements.txt`, therefore I added what I installed you actual run
+There are some omissions in `requirements.txt`, therefore I added what I installed in actual run
 
 ## Phoneme extract tool
 → [Download Link](https://cmusphinx.github.io/wiki/phonemerecognition/)
