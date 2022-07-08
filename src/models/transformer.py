@@ -14,7 +14,7 @@ class PositionalEncoding(nn.Module):
         super(PositionalEncoding, self).__init__()
 
         # Not a parameter
-        
+
         self.register_buffer('pos_table', self._get_sinusoid_encoding_table(n_position, d_hid))
 
     def _get_sinusoid_encoding_table(self, n_position, d_hid):
@@ -356,9 +356,9 @@ class Audio2kpTransformer(nn.Module):
 
 
 
-    def forward(self,x, initial_kp = None):
-        bs,seqlen = x["ph"].shape
-        ph = x["ph"].reshape(bs*seqlen,1)
+    def forward(self, x, initial_keypoint = None):
+        bs,seqlen = x["ph"].shape # batch_size, sequence_length
+        ph = x["ph"].reshape(bs*seqlen,1) # flatten
         pose = x["pose"].reshape(bs*seqlen,1,256,256)
         input_feature = self.down_pose(pose)
 
@@ -374,7 +374,7 @@ class Audio2kpTransformer(nn.Module):
         decoder_feature = F.interpolate(decoder_feature, scale_factor=2)
         decoder_feature = self.decodefeature_extract(torch.cat(
             (decoder_feature,
-             initial_kp["feature_map"].unsqueeze(1).repeat(1, seqlen, 1, 1, 1).reshape(bs * seqlen, 35, 64, 64)),
+             initial_keypoint["feature_map"].unsqueeze(1).repeat(1, seqlen, 1, 1, 1).reshape(bs * seqlen, 35, 64, 64)),
             dim=1)).unsqueeze(-1).reshape(bs, seqlen, 512)
 
         posi_em = self.pos_enc(self.opt.num_w*2+1)
@@ -384,9 +384,9 @@ class Audio2kpTransformer(nn.Module):
 
         output_feature = self.transformer(self.opt,input_feature,decoder_feature,posi_em)[-1,self.opt.num_w]
 
-        out["value"] = self.kp(output_feature).reshape(bs,self.opt.num_kp,2)
+        out["value"] = self.kp(output_feature).reshape(bs,self.opt.num_kp,2) 
         out["jacobian"] = self.jacobian(output_feature).reshape(bs,self.opt.num_kp,2,2)
 
-        return out
+        return out # out -> keypoint
 
 

@@ -207,7 +207,7 @@ class Decoder(nn.Module):
             out = torch.cat([out, skip], dim=1)
         return out
 
-class Hourglass(nn.Module):
+class Hourglass(nn.Module): 
     """
     Hourglass architecture.
     """

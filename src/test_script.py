@@ -60,6 +60,7 @@ def test_with_input_audio_and_image(
     save_dir="samples/results",
 ):
 
+    ### preprocess part
     # temp_audio = audio_path
     # print(audio_path)
     cur_path = os.getcwd()
@@ -139,49 +140,55 @@ def test_with_input_audio_and_image(
     audio_f = torch.from_numpy(np.array(audio_frames, dtype=np.float32)).unsqueeze(0)
     poses = torch.from_numpy(np.array(pose_frames, dtype=np.float32)).unsqueeze(0)
     ph_frames = torch.from_numpy(np.array(ph_frames)).unsqueeze(0)
-    bs = audio_f.shape[1]
+    ### preprocess end
+    
+    bs = audio_f.shape[1] # batch size
     predictions_gen = []
 
     kp_detector = KPDetector(
         **config["model_params"]["kp_detector_params"],
         **config["model_params"]["common_params"]
-    )
+    ) # keypoint detector
+    
     generator = OcclusionAwareGenerator(
         **config["model_params"]["generator_params"],
         **config["model_params"]["common_params"]
-    )
+    ) # ??
+    
     kp_detector = kp_detector.cuda()
     generator = generator.cuda()
 
-    ph2kp = Audio2kpTransformer(opt).cuda()
+    ph2kp = Audio2kpTransformer(opt).cuda() # avct
 
     load_ckpt(generator_ckpt, kp_detector=kp_detector, generator=generator, ph2kp=ph2kp)
 
     ph2kp.eval()
     generator.eval()
     kp_detector.eval()
-
+    
+    # train
     with torch.no_grad():
         for frame_idx in range(bs):
-            t = {}
+            inputs = {}
 
-            t["audio"] = audio_f[:, frame_idx].cuda()
-            t["pose"] = poses[:, frame_idx].cuda()
-            t["ph"] = ph_frames[:, frame_idx].cuda()
-            t["id_img"] = img
+            inputs["audio"] = audio_f[:, frame_idx].cuda() # a_i
+            inputs["pose"] = poses[:, frame_idx].cuda() # h_i
+            inputs["ph"] = ph_frames[:, frame_idx].cuda() # p_i
+            inputs["id_img"] = img # f^r
+            # inputs = {audio, pose, ph, id_image}
 
-            kp_gen_source = kp_detector(img, True)
+            initial_keypoint = kp_detector(img, True) # keypoint of image
 
-            gen_kp = ph2kp(t, kp_gen_source)
+            gen_kp = ph2kp(inputs, initial_keypoint) # input (x, initial kp), out = dense motionfiled
             if frame_idx == 0:
                 drive_first = gen_kp
 
             norm = normalize_kp(
-                kp_source=kp_gen_source,
+                kp_source=initial_keypoint,
                 kp_driving=gen_kp,
                 kp_driving_initial=drive_first,
-            )
-            out_gen = generator(img, kp_source=kp_gen_source, kp_driving=norm)
+            ) # 
+            out_gen = generator(img, kp_source=initial_keypoint, kp_driving=norm) # Renderer
 
             predictions_gen.append(
                 (
