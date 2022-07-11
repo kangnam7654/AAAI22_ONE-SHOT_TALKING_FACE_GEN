@@ -5,9 +5,7 @@ pyworld
 pyyaml
 imageio
 scipy
-pyworld
-opencv-python
+opencv-python  # no conda install -c conda-forge
 imageio-ffmpeg
-ffmpeg
 cmake
 dlib

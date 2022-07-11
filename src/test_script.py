@@ -60,7 +60,7 @@ def test_with_input_audio_and_image(
     save_dir="samples/results",
 ):
 
-    ### preprocess part
+    ### preprocess part (전처리 부분)
     # temp_audio = audio_path
     # print(audio_path)
     cur_path = os.getcwd()
@@ -86,7 +86,7 @@ def test_with_input_audio_and_image(
 
     first_pose = get_img_pose(img_path)  # h_r # [Rx, Ry, Rz, Tx, Ty, Tz]
     audio_feature = get_audio_feature_from_audio(temp_audio) # a_{1:T} # shape [time, power]
-    
+
     frames = len(audio_feature) // 4
     frames = min(frames, len(phs["phone_list"]))
 
@@ -95,10 +95,10 @@ def test_with_input_audio_and_image(
     tp = torch.from_numpy(tp).unsqueeze(0).unsqueeze(0).cuda() # [1, 1, 256, 256]
     ref_pose = get_pose_from_audio(tp, audio_feature, audio2pose_ckpt) # h_{1:T}
     torch.cuda.empty_cache()
-    trans_seq = ref_pose[:, 3:] # 프레임 별 transpose vector 변화 (카메라 정렬 사용 벡터)
-    rot_seq = ref_pose[:, :3] # 프레임 별 rotaion vector 변화 (카메라 정렬 사용 벡터)
+    trans_seq = ref_pose[:, 3:] # 프레임 별 transform vector 변화, 3D -> 2D projection
+    rot_seq = ref_pose[:, :3] # 프레임 별 rotaion vector 변화, 3D -> 2D projection
 
-    audio_seq = audio_feature  # [40:] # ???
+    audio_seq = audio_feature  # [40:] # [mfcc, logbank, interpitch(pyworld.harvest)]
     ph_seq = phs["phone_list"]
 
     ph_frames = [] # p_{1:T} # phoneme(음소)
@@ -106,17 +106,17 @@ def test_with_input_audio_and_image(
     pose_frames = [] # h_{1:T}
     name_len = frames
 
-    pad = np.zeros((4, audio_seq.shape[1]), dtype=np.float32)
+    pad = np.zeros((4, audio_seq.shape[1]), dtype=np.float32) # [4, logbank shape]
 
-    # To get p, a, h
+    # To get phoneme, audio, headmotion
     for rid in range(0, frames):
         ph = []
         audio = [] 
         pose = []
         for i in range(rid - opt.num_w, rid + opt.num_w + 1):
             if i < 0:
-                rot = rot_seq[0]
-                trans = trans_seq[0]
+                rot = rot_seq[0] # rotate sequence
+                trans = trans_seq[0] # transform sequence
                 ph.append(31) # phoneme # 31 = SIL = silence
                 audio.append(pad)
             elif i >= name_len:
@@ -140,10 +140,10 @@ def test_with_input_audio_and_image(
     audio_f = torch.from_numpy(np.array(audio_frames, dtype=np.float32)).unsqueeze(0)
     poses = torch.from_numpy(np.array(pose_frames, dtype=np.float32)).unsqueeze(0)
     ph_frames = torch.from_numpy(np.array(ph_frames)).unsqueeze(0)
-    ### preprocess end
+    ### preprocess end (전처리 끝)
     
     bs = audio_f.shape[1] # batch size
-    predictions_gen = []
+    predictions_gen = [] # result image sequence
 
     kp_detector = KPDetector(
         **config["model_params"]["kp_detector_params"],
@@ -166,7 +166,7 @@ def test_with_input_audio_and_image(
     generator.eval()
     kp_detector.eval()
     
-    # train
+    # train (학습 진행)
     with torch.no_grad():
         for frame_idx in range(bs):
             inputs = {}
@@ -179,7 +179,7 @@ def test_with_input_audio_and_image(
 
             initial_keypoint = kp_detector(img, True) # keypoint of image
 
-            gen_kp = ph2kp(inputs, initial_keypoint) # input (x, initial kp), out = dense motionfiled
+            gen_kp = ph2kp(inputs, initial_keypoint) # input (x, initial kp), out = motionfiled
             if frame_idx == 0:
                 drive_first = gen_kp
 
@@ -187,8 +187,8 @@ def test_with_input_audio_and_image(
                 kp_source=initial_keypoint,
                 kp_driving=gen_kp,
                 kp_driving_initial=drive_first,
-            ) # 
-            out_gen = generator(img, kp_source=initial_keypoint, kp_driving=norm) # Renderer
+            ) # 2D Projection image
+            out_gen = generator(img, kp_source=initial_keypoint, kp_driving=norm) # Renderer, 레퍼런스 이미지 + Motion field 이용하여 렌더링
 
             predictions_gen.append(
                 (
@@ -196,7 +196,7 @@ def test_with_input_audio_and_image(
                         out_gen["prediction"].data.cpu().numpy(), [0, 2, 3, 1]
                     )[0]
                     * 255
-                ).astype(np.uint8)
+                ).astype(np.uint8) # [sequence, height, width, colour channel] permutation
             )
 
     log_dir = save_dir
@@ -211,7 +211,7 @@ def test_with_input_audio_and_image(
     # kwargs = {'duration': 1. / 25.0}
     video_path = os.path.join(log_dir, "temp", f_name)
     print("save video to: ", video_path)
-    imageio.mimsave(video_path, predictions_gen, fps=25.0)
+    imageio.mimsave(video_path, predictions_gen, fps=25.0) # video save, fps 25고정
 
     # audio_path = os.path.join(audio_dir, x['name'][0].replace(".mp4", ".wav"))
     save_video = os.path.join(log_dir, f_name)

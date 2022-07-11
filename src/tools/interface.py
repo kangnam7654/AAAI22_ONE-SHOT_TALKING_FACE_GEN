@@ -181,7 +181,7 @@ def get_audio_feature_from_audio(audio_path):
     cat = np.concatenate(
         [a[:frame_num], b[:frame_num], c[:frame_num], c_flag[:frame_num]], axis=1
     )
-    return cat
+    return cat 
 
 
 def get_pose_from_audio(img, audio, audio2pose):
