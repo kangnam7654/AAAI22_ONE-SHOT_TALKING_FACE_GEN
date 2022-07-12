@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent
-CONFIG_DIR = os.path.join(ROOT_DIR, 'config_file')
+CONFIG_DIR = ROOT_DIR.joinpath('config_file')
 
 import numpy as np
 import torch
@@ -21,6 +21,7 @@ from tools.interface import (
     get_audio_feature_from_audio,
     parse_phoneme_file,
     load_ckpt,
+    normalize_kp
 )
 
 # import config
@@ -28,27 +29,83 @@ with open(os.path.join(CONFIG_DIR, 'vox-256.yaml')) as f:
     config = yaml.full_load(f)
 
 
-def normalize_kp(
-    kp_source,
-    kp_driving,
-    kp_driving_initial,
-    use_relative_movement=True,
-    use_relative_jacobian=True,
-):
+### TODO already moved to interface # will be deleted
+# def normalize_kp(
+#     kp_source,
+#     kp_driving,
+#     kp_driving_initial,
+#     use_relative_movement=True,
+#     use_relative_jacobian=True,
+# ):
 
-    kp_new = {k: v for k, v in kp_driving.items()}
-    if use_relative_movement:
-        kp_value_diff = kp_driving["value"] - kp_driving_initial["value"]
-        # kp_value_diff *= adapt_movement_scale
-        kp_new["value"] = kp_value_diff + kp_source["value"]
+#     kp_new = {k: v for k, v in kp_driving.items()}
+#     if use_relative_movement:
+#         kp_value_diff = kp_driving["value"] - kp_driving_initial["value"]
+#         # kp_value_diff *= adapt_movement_scale
+#         kp_new["value"] = kp_value_diff + kp_source["value"]
 
-        if use_relative_jacobian:
-            jacobian_diff = torch.matmul(
-                kp_driving["jacobian"], torch.inverse(kp_driving_initial["jacobian"])
-            )
-            kp_new["jacobian"] = torch.matmul(jacobian_diff, kp_source["jacobian"])
+#         if use_relative_jacobian:
+#             jacobian_diff = torch.matmul(
+#                 kp_driving["jacobian"], torch.inverse(kp_driving_initial["jacobian"])
+#             )
+#             kp_new["jacobian"] = torch.matmul(jacobian_diff, kp_source["jacobian"])
+#     return kp_new
 
-    return kp_new
+
+### audio
+def audio_read(audio_path):
+    sr, _ = wavfile.read(audio_path)  # sample rate, data
+    
+    if sr != 16000: # change sample rate 16k
+        temp_audio = ROOT_DIR.joinpath("samples", "temp.wav")
+        command = (
+            "ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s"
+            % (audio_path, temp_audio)
+        )
+        os.system(command)
+    else:
+        temp_audio = audio_path
+    return temp_audio
+
+
+def get_sequences():
+    ph_frames = [] # p_{1:T} # phoneme(음소)
+    audio_frames = [] # a_{1:T}
+    pose_frames = [] # h_{1:T}
+
+    for rid in range(0, frames):
+        ph = []
+        audio = [] 
+        pose = []
+        for i in range(rid - opt.num_w, rid + opt.num_w + 1):
+            if i < 0:
+                rot = rot_seq[0] # rotate sequence
+                trans = trans_seq[0] # transform sequence
+                ph.append(31) # phoneme # 31 = SIL = silence
+                audio.append(pad)
+            elif i >= name_len:
+                ph.append(31) # phoneme # 31 = SIL = silence
+                rot = rot_seq[name_len - 1]
+                trans = trans_seq[name_len - 1]
+                audio.append(pad)
+            else:
+                ph.append(ph_seq[i])
+                rot = rot_seq[i]
+                trans = trans_seq[i]
+                audio.append(audio_seq[i * 4 : i * 4 + 4])
+            tmp_pose = np.zeros([256, 256])
+            draw_annotation_box(tmp_pose, np.array(rot), np.array(trans))
+            pose.append(tmp_pose)
+
+        ph_frames.append(ph)
+        audio_frames.append(audio)
+        pose_frames.append(pose)
+
+    audio_f = torch.from_numpy(np.array(audio_frames, dtype=np.float32)).unsqueeze(0)
+    poses = torch.from_numpy(np.array(pose_frames, dtype=np.float32)).unsqueeze(0)
+    ph_frames = torch.from_numpy(np.array(ph_frames)).unsqueeze(0)
+    ### preprocess end (전처리 끝)
+    return audio_f, poses, ph_frames
 
 
 def test_with_input_audio_and_image(
@@ -61,29 +118,30 @@ def test_with_input_audio_and_image(
 ):
 
     ### preprocess part (전처리 부분)
-    # temp_audio = audio_path
-    # print(audio_path)
-    cur_path = os.getcwd()
 
-    sr, _ = wavfile.read(audio_path)  # sample rate, data
-    
-    if sr != 16000: # change sample rate 16k
-        temp_audio = os.path.join(cur_path, "samples", "temp.wav")
-        command = (
-            "ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s"
-            % (audio_path, temp_audio)
-        )
-        os.system(command)
-    else:
-        temp_audio = audio_path
+    # cur_path = os.getcwd() # TODO will be deleted
 
-    with open(os.path.join(CONFIG_DIR, "audio2kp.yaml")) as f:  # audio2kp open
+    with open(CONFIG_DIR.joinpath("audio2kp.yaml").absolute()) as f:  # audio2kp open
         tmp = yaml.full_load(f)
         
     opt = argparse.Namespace(**tmp)
     img = read_img(img_path).cuda()
 
+    # Audio file read
+    # sr, _ = wavfile.read(audio_path)  # sample rate, data
+    # if sr != 16000: # change sample rate 16k
+    #     temp_audio = ROOT_DIR.joinpath("samples", "temp.wav")
+    #     command = (
+    #         "ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s"
+    #         % (audio_path, temp_audio)
+    #     )
+    #     os.system(command)
+    # else:
+    #     temp_audio = audio_path
 
+    temp_audio = audio_read(audio_path=audio_path)
+
+    # h_r, a_{1:T}
     first_pose = get_img_pose(img_path)  # h_r # [Rx, Ry, Rz, Tx, Ty, Tz]
     audio_feature = get_audio_feature_from_audio(temp_audio) # a_{1:T} # shape [time, power]
 
@@ -108,6 +166,7 @@ def test_with_input_audio_and_image(
 
     pad = np.zeros((4, audio_seq.shape[1]), dtype=np.float32) # [4, logbank shape]
 
+    # TODO replace
     # To get phoneme, audio, headmotion
     for rid in range(0, frames):
         ph = []
@@ -167,6 +226,7 @@ def test_with_input_audio_and_image(
     kp_detector.eval()
     
     # train (학습 진행)
+    # TODO 학습과정 분리
     with torch.no_grad():
         for frame_idx in range(bs):
             inputs = {}

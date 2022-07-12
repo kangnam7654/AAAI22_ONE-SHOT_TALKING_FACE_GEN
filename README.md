@@ -8,9 +8,14 @@
 ## Requirements
 
 ### 1. Install `Microsoft Visual C++`
-→ [Download Link(Korean)](https://visualstudio.microsoft.com/ko/downloads/)  
+→ [Download Link(Korean)](https://visualstudio.microsoft.com/ko/vs/older-downloads/)
 
-For me, I installed `Visual Studio Community` and installed `C++ tools`
+Download `Microsoft Build Tools 2015 update 3` and install
+
+→ [Download Link(Korean)](https://www.microsoft.com/ko-KR/download/confirmation.aspx?id=48159)  
+
+<!-- For me, I installed `Visual Studio Community` and installed `C++ tools` -->
+If there is error, install this and try above again
 
 </br>
 

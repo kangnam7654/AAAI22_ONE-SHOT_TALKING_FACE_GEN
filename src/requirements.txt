@@ -1,11 +1,12 @@
 scikit-image
-python_speech_features
 pandas
-pyworld
 pyyaml
 imageio
 scipy
-opencv-python  # no conda install -c conda-forge
 imageio-ffmpeg
 cmake
 dlib
+opencv # for conda install -c conda-forge
+opencv-python  # for pip install
+python_speech_features # for pip install
+pyworld
