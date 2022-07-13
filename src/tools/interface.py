@@ -14,8 +14,10 @@ import numpy as np
 import subprocess
 import pandas as pd
 from models.audio2pose import audio2poseLSTM
+from models.util import draw_annotation_box
 from scipy.io import wavfile
 import python_speech_features
+import imageio
 import pyworld
 import json
 from scipy.interpolate import interp1d
@@ -24,6 +26,134 @@ import yaml
 # import config
 with open(os.path.join(CONFIG_DIR, 'vox-256.yaml')) as f:
     config = yaml.full_load(f)
+
+def prediction(bs, audio_f, poses, ph_frames, img, kp_detector, ph2kp, generator):
+    predictions_gen = [] # result image sequence
+    with torch.no_grad():
+        for frame_idx in range(bs):
+            inputs = {}
+
+            inputs["audio"] = audio_f[:, frame_idx].cuda() # a_i
+            inputs["pose"] = poses[:, frame_idx].cuda() # h_i
+            inputs["ph"] = ph_frames[:, frame_idx].cuda() # p_i
+            inputs["id_img"] = img # f^r
+            # inputs = {audio, pose, ph, id_image}
+
+            initial_keypoint = kp_detector(img, True) # keypoint of image
+
+            gen_kp = ph2kp(inputs, initial_keypoint) # input (x, initial kp), out = motionfiled
+            if frame_idx == 0:
+                drive_first = gen_kp
+
+            norm = normalize_kp(
+                kp_source=initial_keypoint,
+                kp_driving=gen_kp,
+                kp_driving_initial=drive_first,
+            ) # 2D Projection image
+            out_gen = generator(img, kp_source=initial_keypoint, kp_driving=norm) # Renderer, 레퍼런스 이미지 + Motion field 이용하여 렌더링
+
+            predictions_gen.append(
+                (
+                    np.transpose(
+                        out_gen["prediction"].data.cpu().numpy(), [0, 2, 3, 1]
+                    )[0]
+                    * 255
+                ).astype(np.uint8) # [sequence, height, width, colour channel] permutation
+            )
+    return predictions_gen
+
+
+def get_tp(img_path):
+    # h_r, a_{1:T}
+    first_pose = get_img_pose(img_path)  # h_r # [Rx, Ry, Rz, Tx, Ty, Tz]
+    tp = np.zeros([256, 256], dtype=np.float32)
+    draw_annotation_box(tp, first_pose[:3], first_pose[3:])
+    tp = torch.from_numpy(tp).unsqueeze(0).unsqueeze(0).cuda() # [1, 1, 256, 256]
+    return tp
+
+
+def get_sequences(frames, trans_seq, rot_seq, audio_seq, ph_seq, opt):
+    ph_frames = [] # p_{1:T} # phoneme(음소)
+    audio_frames = [] # a_{1:T}
+    pose_frames = [] # h_{1:T}
+
+    pad = np.zeros((4, audio_seq.shape[1]), dtype=np.float32) # [4, logbank shape]
+    name_len = frames
+    
+    for rid in range(0, frames):
+        ph = []
+        audio = [] 
+        pose = []
+        for i in range(rid - opt.num_w, rid + opt.num_w + 1):
+            if i < 0:
+                rot = rot_seq[0] # rotate sequence
+                trans = trans_seq[0] # transform sequence
+                ph.append(31) # phoneme # 31 = SIL = silence
+                audio.append(pad)
+            elif i >= name_len:
+                ph.append(31) # phoneme # 31 = SIL = silence
+                rot = rot_seq[name_len - 1]
+                trans = trans_seq[name_len - 1]
+                audio.append(pad)
+            else:
+                ph.append(ph_seq[i])
+                rot = rot_seq[i]
+                trans = trans_seq[i]
+                audio.append(audio_seq[i * 4 : i * 4 + 4])
+            tmp_pose = np.zeros([256, 256])
+            draw_annotation_box(tmp_pose, np.array(rot), np.array(trans))
+            pose.append(tmp_pose)
+
+        ph_frames.append(ph)
+        audio_frames.append(audio)
+        pose_frames.append(pose)
+
+    audio_f = torch.from_numpy(np.array(audio_frames, dtype=np.float32)).unsqueeze(0)
+    poses = torch.from_numpy(np.array(pose_frames, dtype=np.float32)).unsqueeze(0)
+    ph_frames = torch.from_numpy(np.array(ph_frames)).unsqueeze(0)
+    return audio_f, poses, ph_frames
+    ### preprocess end (전처리 끝)
+
+
+### audio
+def read_audio(audio_path):
+    sr, _ = wavfile.read(audio_path)  # sample rate, data
+    if sr != 16000: # change sample rate 16k
+        temp_audio = ROOT_DIR.joinpath("samples", "temp.wav")
+        command = (
+            "ffmpeg -y -i %s -async 1 -ac 1 -vn -acodec pcm_s16le -ar 16000 %s"
+            % (audio_path, temp_audio)
+        )
+        os.system(command)
+    else:
+        temp_audio = audio_path
+    return temp_audio
+
+
+def save_video(save_dir, img_path, audio_path, predictions_gen):
+    log_dir = save_dir
+    os.makedirs(os.path.join(log_dir, "temp"), exist_ok=True)
+
+    f_name = (
+        os.path.basename(img_path)[:-4]
+        + "_"
+        + os.path.basename(audio_path)[:-4]
+        + ".mp4"
+    )
+    # kwargs = {'duration': 1. / 25.0}
+    video_path = os.path.join(log_dir, "temp", f_name)
+    print("save video to: ", video_path)
+    imageio.mimsave(video_path, predictions_gen, fps=25.0) # video save, fps 25고정
+
+    # audio_path = os.path.join(audio_dir, x['name'][0].replace(".mp4", ".wav"))
+    save_video_path = os.path.join(log_dir, f_name)
+    cmd = r'ffmpeg -y -i "%s" -i "%s" -vcodec copy "%s"' % (
+        video_path,
+        audio_path,
+        save_video_path,
+    )
+    os.system(cmd)
+    os.remove(video_path)
 
 
 def normalize_kp(
