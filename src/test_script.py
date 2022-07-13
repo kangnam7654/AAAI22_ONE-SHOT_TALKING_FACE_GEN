@@ -121,7 +121,7 @@ if __name__ == "__main__":
         help="path of the input image ( .jpg ), preprocessed by image_preprocess.py",
     )
     argparser.add_argument(
-        "--audio_path", type=str, default='G:\project\\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\src\samples\\audios\\abstract.wav', help="path of the input audio ( .wav )"
+        "--audio_path", type=str, default='./samples/audios/abstract.wav', help="path of the input audio ( .wav )"
     )
     argparser.add_argument(
         "--phoneme_path",
