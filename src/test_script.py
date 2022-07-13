@@ -3,7 +3,6 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 CONFIG_DIR = ROOT_DIR.joinpath('config_file')
 
-import numpy as np
 import torch
 import yaml
 from models.generator import OcclusionAwareGenerator
@@ -42,48 +41,49 @@ def test_with_input_audio_and_image(
     # cur_path = os.getcwd() # TODO will be deleted
     with open(CONFIG_DIR.joinpath("audio2kp.yaml").absolute()) as f:  # audio2kp open
         tmp = yaml.full_load(f)
-    
-    opt = argparse.Namespace(**tmp)
-    # image_file, audio_file read
-    img = read_img(img_path).cuda()
-    temp_audio = read_audio(audio_path=audio_path)
 
-    tp = get_tp(img_path=img_path)
+    opt = argparse.Namespace(**tmp)
+    
+    # Raw data read
+    img = read_img(img_path).cuda() # 레퍼런스 이미지 [C, H, W]
+    temp_audio = read_audio(audio_path=audio_path) # 오디오, 샘플레이트 16k
+
+    # 처리 시작
+    tp = get_tp(img_path=img_path) # 3차원 정보를 2차원으로 전사(projection)한 바이너리 이미지
     audio_feature = get_audio_feature_from_audio(temp_audio) # a_{1:T} # shape [time, power]
     
     # N frames
     frames = len(audio_feature) // 4
     frames = min(frames, len(phs["phone_list"]))
 
-    # 머리 포즈 전체 시퀀스
+    # tp, 오디오를 이용하여 전체 시퀀스에 대한 레퍼런스 포즈(의미론적 이미지가 아님)를 추출
     ref_pose = get_pose_from_audio(tp, audio_feature, audio2pose_ckpt) # h_{1:T}
     torch.cuda.empty_cache()
 
-    # sequences data
-    trans_seq = ref_pose[:, 3:] # 프레임 별 transform vector 변화, 3D -> 2D projection
-    rot_seq = ref_pose[:, :3] # 프레임 별 rotaion vector 변화, 3D -> 2D projection
+    # 
+    trans_seq = ref_pose[:, 3:] # 움직임에 대한 정보 시퀀스
+    rot_seq = ref_pose[:, :3] # 회전에 대한 정보 시퀀스
     audio_seq = audio_feature  # [40:] # [mfcc, logbank, interpitch(pyworld.harvest)]
-    ph_seq = phs["phone_list"]
+    ph_seq = phs["phone_list"] # 음소에 대한 시퀀스
+
     audio_f, poses, ph_frames = get_sequences(frames=frames,
                                               trans_seq=trans_seq,
                                               rot_seq=rot_seq,
                                               audio_seq=audio_seq,
                                               ph_seq=ph_seq,
                                               opt=opt)
+    # 전체 프레임의 시간축에 정렬한 audio, poses, ph가 출력값으로 나옴
+    # 전처리 끝
     
     bs = audio_f.shape[1] # batch size
-
-    # eval 모드
     kp_detector = KPDetector(
         **config["model_params"]["kp_detector_params"],
         **config["model_params"]["common_params"]
-    ) # keypoint detector
-    
-    # 렌더러
+    )
     generator = OcclusionAwareGenerator(
         **config["model_params"]["generator_params"],
         **config["model_params"]["common_params"]
-    )
+    ) # 렌더러
     
     kp_detector = kp_detector.cuda()
     generator = generator.cuda()
@@ -96,7 +96,7 @@ def test_with_input_audio_and_image(
     generator.eval()
     kp_detector.eval()
 
-    # 오디오에 따른 머리 예측 시행
+    # 전체 프레임에 대한 머리 움직임의 시퀀스 생성
     predictions_gen = prediction(bs=bs,
                                  audio_f=audio_f,
                                  poses=poses,

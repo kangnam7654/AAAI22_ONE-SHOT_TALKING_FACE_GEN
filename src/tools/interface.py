@@ -73,6 +73,9 @@ def get_tp(img_path):
 
 
 def get_sequences(frames, trans_seq, rot_seq, audio_seq, ph_seq, opt):
+    '''
+    전처리 하여 동일 프레임으로 음소, 오디오, 머리 모션을 맞춰주는 함수
+    '''
     ph_frames = [] # p_{1:T} # phoneme(음소)
     audio_frames = [] # a_{1:T}
     pose_frames = [] # h_{1:T}
@@ -256,7 +259,7 @@ def read_img(path):
     img = cv2.resize(img, (256, 256))
     # img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     img = np.array(img_as_float32(img))
-    img = img.transpose((2, 0, 1))
+    img = img.transpose((2, 0, 1)) # [C, H, W]
     img = torch.from_numpy(img).unsqueeze(0)
     return img
 
