@@ -8,7 +8,6 @@ import yaml
 from models.generator import OcclusionAwareGenerator
 from models.keypoint_detector import KPDetector
 import argparse
-from models.util import draw_annotation_box
 from models.transformer import Audio2kpTransformer
 from tools.interface import (
     prediction,
@@ -24,7 +23,7 @@ from tools.interface import (
 )
 
 # import config
-with open(CONFIG_DIR.joinpath('vox-256.yaml').absoulte()) as f:
+with open(CONFIG_DIR.joinpath('vox-256.yaml').absolute()) as f:
     config = yaml.full_load(f)
 
 ### main
@@ -43,7 +42,7 @@ def test_with_input_audio_and_image(
         tmp = yaml.full_load(f)
 
     opt = argparse.Namespace(**tmp)
-    
+
     # Raw data read
     img = read_img(img_path).cuda() # 레퍼런스 이미지 [C, H, W]
     temp_audio = read_audio(audio_path=audio_path) # 오디오, 샘플레이트 16k
@@ -51,7 +50,7 @@ def test_with_input_audio_and_image(
     # 처리 시작
     tp = get_tp(img_path=img_path) # 3차원 정보를 2차원으로 전사(projection)한 바이너리 이미지
     audio_feature = get_audio_feature_from_audio(temp_audio) # a_{1:T} # shape [time, power]
-    
+
     # N frames
     frames = len(audio_feature) // 4
     frames = min(frames, len(phs["phone_list"]))
@@ -117,27 +116,28 @@ if __name__ == "__main__":
     argparser.add_argument(
         "--img_path",
         type=str,
-        default='./samples/imgs/d1.jpg',
+        default=ROOT_DIR.joinpath('samples', 'imgs' ,'d2.jpg').absolute(),
         help="path of the input image ( .jpg ), preprocessed by image_preprocess.py",
     )
     argparser.add_argument(
-        "--audio_path", type=str, default='./samples/audios/abstract.wav', help="path of the input audio ( .wav )"
+        "--audio_path", type=str, default=ROOT_DIR.joinpath('samples', 'audios' ,'trump.wav').absolute(), help="path of the input audio ( .wav )"
     )
     argparser.add_argument(
         "--phoneme_path",
         type=str,
-        default='./samples/phonemes/abstract.json',
+        default=ROOT_DIR.joinpath('samples', 'phonemes' ,'trump.json').absolute(),
         help="path of the input phoneme. It should be note that the phoneme must be consistent with the input audio",
     )
     argparser.add_argument(
         "--save_dir",
         type=str,
-        default="./samples/results",
+        default=ROOT_DIR.joinpath('samples', 'results').absolute(),
         help="path of the output video",
     )
     args = argparser.parse_args()
 
-    phoneme = parse_phoneme_file(args.phoneme_path)
+    phoneme = parse_phoneme_file(args.phoneme_path) # Parsing Phoneme
+    
     test_with_input_audio_and_image(
         args.img_path,
         args.audio_path,

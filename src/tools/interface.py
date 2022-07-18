@@ -306,7 +306,7 @@ def parse_phoneme_file(phoneme_path, use_index=True):
                 phoneset_list.append(cur_phone_list[phone_index]["ph"])
                 index += 1
 
-    with open("G:\project\\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\src\phindex.json") as f:
+    with open(ROOT_DIR.joinpath('phindex.json').absolute()) as f:
         ph2index = json.load(f)
     if use_index:
         phone_list = [ph2index[p] for p in phone_list]
