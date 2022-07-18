@@ -1,6 +1,6 @@
-OPENFACE_POSE_EXTRACTOR_PATH: G:\project\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\OpenFace\FeatureExtraction.exe
-GENERATOR_CKPT: G:\project\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\src\ckpt\generator.ckpt
-AUDIO2POSE_CKPT: G:\project\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\src\ckpt\audio2pose.ckpt
+OPENFACE_POSE_EXTRACTOR_PATH: D:\project\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\OpenFace\FeatureExtraction.exe
+GENERATOR_CKPT: D:\project\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\src\ckpt\generator.ckpt
+AUDIO2POSE_CKPT: D:\project\talking_face_generation\AAAI22_ONE-SHOT_TALKING_FACE_GEN\src\ckpt\audio2pose.ckpt
 
 dataset_params:
   root_dir: /root/wsz/data/vex_image
