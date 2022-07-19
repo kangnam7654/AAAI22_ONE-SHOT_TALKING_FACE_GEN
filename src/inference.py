@@ -97,8 +97,8 @@ def inference(
 
     # 전체 프레임에 대한 머리 움직임의 시퀀스 생성
     predictions_gen = prediction(bs=bs,
-                                 audio_f=audio_frames,
-                                 poses=pose_frames,
+                                 audio_frames=audio_frames,
+                                 pose_frames=pose_frames,
                                  ph_frames=ph_frames,
                                  img=img,
                                  kp_detector=kp_detector,
