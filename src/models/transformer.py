@@ -301,7 +301,7 @@ class Audio2kpTransformer(nn.Module):
         self.opt = opt
 
 
-        self.embedding = nn.Embedding(41, opt.embedding_dim)
+        self.embedding = nn.Embedding(41, opt.embedding_dim) # Embedding layer
         self.pos_enc = PositionalEncoding(512,20)
         self.down_pose = AntiAliasInterpolation2d(1,0.25)
         input_dim = 2
@@ -325,8 +325,8 @@ class Audio2kpTransformer(nn.Module):
                                              nn.AvgPool2d(2))
 
         self.transformer = Transformer()
-        self.kp = nn.Linear(512,opt.num_kp*2)
-        self.jacobian = nn.Linear(512,opt.num_kp*4)
+        self.kp = nn.Linear(512, opt.num_kp * 2)
+        self.jacobian = nn.Linear(512, opt.num_kp * 4)
         self.jacobian.weight.data.zero_()
         self.jacobian.bias.data.copy_(torch.tensor([1, 0, 0, 1] * self.opt.num_kp, dtype=torch.float))
         self.criterion = nn.L1Loss()
