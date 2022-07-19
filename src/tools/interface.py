@@ -27,14 +27,14 @@ import yaml
 with open(os.path.join(CONFIG_DIR, 'vox-256.yaml')) as f:
     config = yaml.full_load(f)
 
-def prediction(bs, audio_f, poses, ph_frames, img, kp_detector, ph2kp, generator):
+def prediction(bs, audio_frames, pose_frames, ph_frames, img, kp_detector, ph2kp, generator):
     predictions_gen = [] # result image sequence
     with torch.no_grad():
         for frame_idx in range(bs):
             inputs = {}
 
-            inputs["audio"] = audio_f[:, frame_idx].cuda() # a_i
-            inputs["pose"] = poses[:, frame_idx].cuda() # h_i
+            inputs["audio"] = audio_frames[:, frame_idx].cuda() # a_i
+            inputs["pose"] = pose_frames[:, frame_idx].cuda() # h_i
             inputs["ph"] = ph_frames[:, frame_idx].cuda() # p_i
             inputs["id_img"] = img # f^r
             # inputs = {audio, pose, ph, id_image}
